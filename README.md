@@ -1,4 +1,4 @@
 ulock
 =====
 
-Lock-free multithreaded data structures
+Lock-free thread-safe data structures
