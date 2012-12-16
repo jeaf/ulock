@@ -1,3 +1,10 @@
+*.opensdf
+*.sdf
+*.suo
+*.swp
+*.user
+Debug
+
 # Compiled Object files
 *.slo
 *.lo
