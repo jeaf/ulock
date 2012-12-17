@@ -31,6 +31,7 @@ struct ComplexType
   {
     cout << "ComplexType assignment operator" << endl;
     v = other.v;
+    return *this;
   }
 
   int a;
@@ -183,7 +184,13 @@ void test_constructor_destructor()
   {
     cout << "mtstack:" << endl;
     ulock::mtstack<ComplexType> s;
+    cout << "size: " << s.size() << endl;
     s.push(ct);
+    cout << "size: " << s.size() << endl;
+    s.pop(ct);
+    cout << "size: " << s.size() << endl;
+    s.pop(ct);
+    cout << "size: " << s.size() << endl;
   }
   
   cout << "--------------------------" << endl;

@@ -11,7 +11,7 @@ namespace ulock
   public:
     typedef T value_type;
 
-    mtstack() : nodes(NULL), free_nodes(NULL)
+    mtstack() : nodes(NULL), free_nodes(NULL), _size(0)
     {
       nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
       InitializeSListHead(nodes);
@@ -19,7 +19,7 @@ namespace ulock
       InitializeSListHead(free_nodes);
     }
 
-    mtstack(unsigned n, const T& val = T()) : nodes(NULL), free_nodes(NULL)
+    mtstack(unsigned n, const T& val = T()) : nodes(NULL), free_nodes(NULL), _size(0)
     {
       nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
       InitializeSListHead(nodes);
@@ -35,8 +35,8 @@ namespace ulock
     {
       while (SLIST_ENTRY* e = InterlockedPopEntrySList(nodes))
       {
-        node* n = reinterpret_cast<node*>(e);
-        n->obj.~T();
+        InterlockedDecrement(&_size);
+        reinterpret_cast<node*>(e)->obj.~T();
         _aligned_free(e);
       }
       while (SLIST_ENTRY* e = InterlockedPopEntrySList(free_nodes))
@@ -52,8 +52,9 @@ namespace ulock
       {
         free_node = _aligned_malloc(sizeof(node), MEMORY_ALLOCATION_ALIGNMENT);
       }
-      new (&static_cast<node*>(free_node)->obj) T(obj);
+      ::new (&static_cast<node*>(free_node)->obj) T(obj);
       InterlockedPushEntrySList(nodes, static_cast<SLIST_ENTRY*>(free_node));
+      InterlockedIncrement(&_size);
     }
 
     bool pop(T& obj)
@@ -61,6 +62,7 @@ namespace ulock
       SLIST_ENTRY* e = InterlockedPopEntrySList(nodes);
       if (e)
       {
+        InterlockedDecrement(&_size);
         obj = reinterpret_cast<node*>(e)->obj;
         reinterpret_cast<node*>(e)->obj.~T();
         InterlockedPushEntrySList(free_nodes, e);
@@ -69,10 +71,16 @@ namespace ulock
       return false;
     }
 
+    unsigned int size() const
+    {
+      return _size;
+    }
+
     void clear()
     {
       while (SLIST_ENTRY* e = InterlockedPopEntrySList(nodes))
       {
+        InterlockedDecrement(&_size);
         reinterpret_cast<node*>(e)->obj.~T();
         InterlockedPushEntrySList(free_nodes, e);
       }
@@ -86,6 +94,7 @@ namespace ulock
     };
     SLIST_HEADER* nodes;
     SLIST_HEADER* free_nodes;
+    volatile LONG _size;
   };
 }
 
