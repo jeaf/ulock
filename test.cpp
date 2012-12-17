@@ -4,8 +4,41 @@
 
 #include <iostream>
 #include <list>
+#include <vector>
 
 using namespace std;
+
+struct ComplexType
+{
+  ComplexType()
+  {
+    cout << "ComplexType constructor" << endl;
+    v.push_back(3234.234);
+  }
+
+  ComplexType(const ComplexType& other) : v(other.v), s(other.s)
+  {
+    cout << "ComplexType copy-constructor" << endl;
+    v = other.v;
+  }
+
+  ~ComplexType()
+  {
+    cout << "ComplexType destructor" << endl;
+  }
+
+  ComplexType& operator=(const ComplexType& other)
+  {
+    cout << "ComplexType assignment operator" << endl;
+    v = other.v;
+  }
+
+  int a;
+  double b;
+  char c[50];
+  std::vector<double> v;
+  std::string s;
+};
 
 struct LargeStruct
 {
@@ -15,6 +48,9 @@ struct LargeStruct
     b[22] = 234234.234;
     b[33] = 9999.22;
     c[30] = 'c';
+  }
+  ~LargeStruct()
+  {
   }
   int a;
   double b[50];
@@ -73,7 +109,7 @@ private:
 //typedef ulock::mtstack<int> TStack;
 typedef ulock::mtstack<LargeStruct> TStack;
 const int elem_count = 2000;
-const int prod_count = 100;
+const int prod_count = 50;
 
 DWORD WINAPI producer(LPVOID param) 
 {
@@ -102,7 +138,7 @@ DWORD WINAPI consumer(LPVOID param)
   return 0;
 }
 
-int main()
+void test_perf()
 {
   double total = 0.0;
   const unsigned loop_count = 10;
@@ -136,6 +172,34 @@ int main()
   }
 
   cout << "Average: " << total/loop_count << endl;
+}
 
+void test_constructor_destructor()
+{
+  ComplexType ct;
+
+  cout << "--------------------------" << endl;
+
+  {
+    cout << "mtstack:" << endl;
+    ulock::mtstack<ComplexType> s;
+    s.push(ct);
+  }
+  
+  cout << "--------------------------" << endl;
+  
+  {
+    cout << "std::list:" << endl;
+    std::list<ComplexType> li;
+    li.push_back(ct);
+  }
+  
+  cout << "--------------------------" << endl;
+}
+
+int main()
+{
+  //test_constructor_destructor();
+  test_perf();
   return 0;
 }

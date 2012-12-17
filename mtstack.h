@@ -31,6 +31,20 @@ namespace ulock
       }
     }
 
+    ~mtstack()
+    {
+      while (SLIST_ENTRY* e = InterlockedPopEntrySList(nodes))
+      {
+        node* n = reinterpret_cast<node*>(e);
+        n->obj.~T();
+        _aligned_free(e);
+      }
+      while (SLIST_ENTRY* e = InterlockedPopEntrySList(free_nodes))
+      {
+        _aligned_free(e);
+      }
+    }
+
     void push(const T& obj = T())
     {
       void* free_node = InterlockedPopEntrySList(free_nodes);
@@ -38,7 +52,7 @@ namespace ulock
       {
         free_node = _aligned_malloc(sizeof(node), MEMORY_ALLOCATION_ALIGNMENT);
       }
-      static_cast<node*>(free_node)->obj = obj;
+      new (&static_cast<node*>(free_node)->obj) T(obj);
       InterlockedPushEntrySList(nodes, static_cast<SLIST_ENTRY*>(free_node));
     }
 
@@ -48,6 +62,7 @@ namespace ulock
       if (e)
       {
         obj = reinterpret_cast<node*>(e)->obj;
+        reinterpret_cast<node*>(e)->obj.~T();
         InterlockedPushEntrySList(free_nodes, e);
         return true;
       }
