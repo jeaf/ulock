@@ -4,6 +4,7 @@
 *.swp
 *.user
 Debug
+ipch
 
 # Compiled Object files
 *.slo
