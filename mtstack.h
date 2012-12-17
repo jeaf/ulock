@@ -9,6 +9,8 @@ namespace ulock
   class mtstack
   {
   public:
+    typedef T value_type;
+
     mtstack() : nodes(NULL), free_nodes(NULL)
     {
       nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
@@ -29,7 +31,7 @@ namespace ulock
       }
     }
 
-    void push(const T& obj)
+    void push(const T& obj = T())
     {
       void* free_node = InterlockedPopEntrySList(free_nodes);
       if (!free_node)
