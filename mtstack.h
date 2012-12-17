@@ -9,25 +9,32 @@ namespace ulock
   class mtstack
   {
   public:
-    mtstack() : header(NULL)
+    mtstack() : nodes(NULL)
     {
-      header = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
-      InitializeSListHead(header);
+      nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
+      InitializeSListHead(nodes);
+      free_nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
+      InitializeSListHead(free_nodes);
     }
 
     void push(const T& obj)
     {
-      node* i = static_cast<node*>(_aligned_malloc(sizeof(node), MEMORY_ALLOCATION_ALIGNMENT));
-      i->obj = obj;
-      InterlockedPushEntrySList(header, &(i->entry));
+      void* free_node = InterlockedPopEntrySList(free_nodes);
+      if (!free_node)
+      {
+        free_node = _aligned_malloc(sizeof(node), MEMORY_ALLOCATION_ALIGNMENT);
+      }
+      static_cast<node*>(free_node)->obj = obj;
+      InterlockedPushEntrySList(nodes, static_cast<SLIST_ENTRY*>(free_node));
     }
 
     bool pop(T& obj)
     {
-      SLIST_ENTRY* e = InterlockedPopEntrySList(header);
+      SLIST_ENTRY* e = InterlockedPopEntrySList(nodes);
       if (e)
       {
         obj = reinterpret_cast<node*>(e)->obj;
+        InterlockedPushEntrySList(free_nodes, e);
         return true;
       }
       return false;
@@ -39,7 +46,8 @@ namespace ulock
       SLIST_ENTRY entry;
       T obj;
     };
-    SLIST_HEADER* header;
+    SLIST_HEADER* nodes;
+    SLIST_HEADER* free_nodes;
   };
 }
 
