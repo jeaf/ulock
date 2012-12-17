@@ -69,6 +69,15 @@ namespace ulock
       return false;
     }
 
+    void clear()
+    {
+      while (SLIST_ENTRY* e = InterlockedPopEntrySList(nodes))
+      {
+        reinterpret_cast<node*>(e)->obj.~T();
+        InterlockedPushEntrySList(free_nodes, e);
+      }
+    }
+
   private:
     struct node
     {
