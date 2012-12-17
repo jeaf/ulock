@@ -9,12 +9,24 @@ namespace ulock
   class mtstack
   {
   public:
-    mtstack() : nodes(NULL)
+    mtstack() : nodes(NULL), free_nodes(NULL)
     {
       nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
       InitializeSListHead(nodes);
       free_nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
       InitializeSListHead(free_nodes);
+    }
+
+    mtstack(unsigned n, const T& val = T()) : nodes(NULL), free_nodes(NULL)
+    {
+      nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
+      InitializeSListHead(nodes);
+      free_nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
+      InitializeSListHead(free_nodes);
+      for (unsigned i = 0; i < n; ++i)
+      {
+        push(val);
+      }
     }
 
     void push(const T& obj)

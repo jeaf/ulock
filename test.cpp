@@ -52,7 +52,7 @@ private:
 
 //typedef critstack<int> IntStack;
 typedef ulock::mtstack<int> IntStack;
-const int elem_count = 200;
+const int elem_count = 2000;
 const int prod_count = 50;
 
 DWORD WINAPI producer(LPVOID param) 
@@ -84,7 +84,7 @@ DWORD WINAPI consumer(LPVOID param)
 
 int main()
 {
-  IntStack stack;
+  IntStack stack(100000, 19);
 
   LARGE_INTEGER begin;
   QueryPerformanceCounter(&begin);
