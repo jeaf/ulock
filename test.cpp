@@ -3,13 +3,62 @@
 #include "mtstack.h"
 
 #include <iostream>
+#include <list>
 
 using namespace std;
 
+template <typename T>
+class critstack
+{
+public:
+  critstack()
+  {
+    InitializeCriticalSection(&lock);
+  }
+
+  ~critstack()
+  {
+    DeleteCriticalSection(&lock);
+  }
+
+  void push(const T& val)
+  {
+    EnterCriticalSection(&lock);
+    mList.push_back(val);
+    LeaveCriticalSection(&lock);
+  }
+
+  bool pop(T& val)
+  {
+    EnterCriticalSection(&lock);
+    if (!mList.empty())
+    {
+      val = mList.back();
+      mList.pop_back();
+      LeaveCriticalSection(&lock);
+      return true;
+    }
+    else
+    {
+      LeaveCriticalSection(&lock);
+      return false;
+    }
+  }
+
+private:
+  CRITICAL_SECTION lock;
+  list<T> mList;
+};
+
+//typedef critstack<int> IntStack;
+typedef ulock::mtstack<int> IntStack;
+const int elem_count = 200;
+const int prod_count = 50;
+
 DWORD WINAPI producer(LPVOID param) 
 {
-  ulock::mtstack<int>* stack = static_cast<ulock::mtstack<int>*>(param);
-  for (int i = 0; i < 10000; ++i)
+  IntStack* stack = static_cast<IntStack*>(param);
+  for (int i = 0; i < elem_count; ++i)
   {
     stack->push(i);
     //Sleep(1);
@@ -19,10 +68,10 @@ DWORD WINAPI producer(LPVOID param)
 
 DWORD WINAPI consumer(LPVOID param)
 {
-  ulock::mtstack<int>* stack = static_cast<ulock::mtstack<int>*>(param);
+  IntStack* stack = static_cast<IntStack*>(param);
   int pop_count = 0;
   int val = 0;
-  while (pop_count < 9999)
+  while (pop_count < prod_count * elem_count)
   {
     if (stack->pop(val))
     {
@@ -35,16 +84,17 @@ DWORD WINAPI consumer(LPVOID param)
 
 int main()
 {
-  ulock::mtstack<int> stack;
+  IntStack stack;
 
   LARGE_INTEGER begin;
   QueryPerformanceCounter(&begin);
 
   cout << "Launch producer threads" << endl;
-  CreateThread(NULL, 0, producer, &stack, 0, NULL);
-  CreateThread(NULL, 0, producer, &stack, 0, NULL);
-  CreateThread(NULL, 0, producer, &stack, 0, NULL);
-  CreateThread(NULL, 0, producer, &stack, 0, NULL);
+  HANDLE h_prod[prod_count];
+  for (unsigned i = 0; i < prod_count; ++i)
+  {
+    h_prod[i] = CreateThread(NULL, 0, producer, &stack, 0, NULL);
+  }
   cout << "Launch consumer thread" << endl;
   HANDLE h = CreateThread(NULL, 0, consumer, &stack, 0, NULL);
   cout << "Wait for consumer thread to finish" << endl;
@@ -54,7 +104,9 @@ int main()
   QueryPerformanceCounter(&end);
   LARGE_INTEGER freq;
   QueryPerformanceFrequency(&freq);
-  cout << double(end.QuadPart - begin.QuadPart) / freq.QuadPart << " seconds" << endl;
+  cout << 1000 * double(end.QuadPart - begin.QuadPart) / freq.QuadPart << " ms" << endl;
+
+  WaitForMultipleObjects(prod_count, h_prod, TRUE, INFINITE);
 
   return 0;
 }
