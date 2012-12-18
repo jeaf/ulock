@@ -12,24 +12,24 @@ struct ComplexType
 {
   ComplexType()
   {
-    cout << "ComplexType constructor" << endl;
+    //cout << "ComplexType constructor" << endl;
     v.push_back(3234.234);
   }
 
   ComplexType(const ComplexType& other) : v(other.v), s(other.s)
   {
-    cout << "ComplexType copy-constructor" << endl;
+    //cout << "ComplexType copy-constructor" << endl;
     v = other.v;
   }
 
   ~ComplexType()
   {
-    cout << "ComplexType destructor" << endl;
+    //cout << "ComplexType destructor" << endl;
   }
 
   ComplexType& operator=(const ComplexType& other)
   {
-    cout << "ComplexType assignment operator" << endl;
+    //cout << "ComplexType assignment operator" << endl;
     v = other.v;
     return *this;
   }
@@ -60,7 +60,7 @@ struct LargeStruct
   char e[50];
 };
 
-template <typename T>
+template <typename T, typename C = list<T> >
 class critstack
 {
 public:
@@ -100,15 +100,25 @@ public:
     }
   }
 
+  void clear()
+  {
+    EnterCriticalSection(&lock);
+    mList.clear();
+    LeaveCriticalSection(&lock);
+  }
+
 private:
   CRITICAL_SECTION lock;
-  list<T> mList;
+  C mList;
 };
 
 //typedef critstack<int> TStack;
 //typedef critstack<LargeStruct> TStack;
+//typedef critstack<ComplexType> TStack;
+//typedef critstack<LargeStruct, vector<LargeStruct> > TStack;
 //typedef ulock::mtstack<int> TStack;
 typedef ulock::mtstack<LargeStruct> TStack;
+//typedef ulock::mtstack<ComplexType> TStack;
 const int elem_count = 2000;
 const int prod_count = 50;
 
@@ -143,9 +153,10 @@ void test_perf()
 {
   double total = 0.0;
   const unsigned loop_count = 10;
+  TStack stack;
   for (unsigned kk = 0; kk < loop_count; ++kk)
   {
-    TStack stack;
+    stack.clear();
 
     LARGE_INTEGER begin;
     QueryPerformanceCounter(&begin);
