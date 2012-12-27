@@ -4,32 +4,30 @@
 
 #include <iostream>
 #include <list>
+#include <sstream>
 #include <vector>
 
 using namespace std;
+using namespace ulock;
 
 struct ComplexType
 {
   ComplexType()
   {
-    //cout << "ComplexType constructor" << endl;
     v.push_back(3234.234);
   }
 
   ComplexType(const ComplexType& other) : v(other.v), s(other.s)
   {
-    //cout << "ComplexType copy-constructor" << endl;
     v = other.v;
   }
 
   ~ComplexType()
   {
-    //cout << "ComplexType destructor" << endl;
   }
 
   ComplexType& operator=(const ComplexType& other)
   {
-    //cout << "ComplexType assignment operator" << endl;
     v = other.v;
     return *this;
   }
@@ -39,25 +37,6 @@ struct ComplexType
   char c[50];
   std::vector<double> v;
   std::string s;
-};
-
-struct LargeStruct
-{
-  LargeStruct()
-  {
-    a = 3;
-    b[22] = 234234.234;
-    b[33] = 9999.22;
-    c[30] = 'c';
-  }
-  ~LargeStruct()
-  {
-  }
-  int a;
-  double b[50];
-  char c[50];
-  char d[50];
-  char e[50];
 };
 
 template <typename T, typename C = list<T> >
@@ -113,14 +92,13 @@ private:
 };
 
 //typedef critstack<int> TStack;
-//typedef critstack<LargeStruct> TStack;
 //typedef critstack<ComplexType> TStack;
-//typedef critstack<LargeStruct, vector<LargeStruct> > TStack;
-//typedef ulock::mtstack<int> TStack;
-//typedef ulock::mtstack<LargeStruct, ulock::NullSizeCounter, ulock::RecyclingNodeAlloc<LargeStruct> > TStack;
-typedef ulock::mtstack<LargeStruct, ulock::InterlockedSizeCounter, ulock::RecyclingNodeAlloc<LargeStruct> > TStack;
-//typedef ulock::mtstack<LargeStruct, ulock::InterlockedSizeCounter, ulock::BaseNodeAlloc<LargeStruct> > TStack;
-//typedef ulock::mtstack<ComplexType> TStack;
+//typedef critstack<ComplexType, vector<ComplexType> > TStack;
+//typedef mtstack<int> TStack;
+//typedef mtstack<ComplexType, NullSizeCounter, RecyclingNodeAlloc<ComplexType> > TStack;
+typedef mtstack<ComplexType, InterlockedSizeCounter, RecyclingNodeAlloc<ComplexType> > TStack;
+//typedef mtstack<ComplexType, InterlockedSizeCounter, BaseNodeAlloc<ComplexType> > TStack;
+//typedef mtstack<ComplexType> TStack;
 const int elem_count = 2000;
 const int prod_count = 50;
 
@@ -196,7 +174,7 @@ void test_constructor_destructor()
 
   {
     cout << "mtstack:" << endl;
-    ulock::mtstack<ComplexType> s;
+    mtstack<ComplexType> s;
     cout << "size: " << s.size() << endl;
     s.push(ct);
     cout << "size: " << s.size() << endl;
@@ -217,9 +195,50 @@ void test_constructor_destructor()
   cout << "--------------------------" << endl;
 }
 
+#define ULOCK_EXPECT(cond) if (!(cond)) {\
+  ostringstream oss; \
+  oss << __FILE__ << "(" << __LINE__ << "): condition '" << #cond << "' was false"; \
+  throw runtime_error(oss.str());}
+
+void unit_test()
+{
+  cout << "Running unit tests..." << endl;
+  try
+  {
+    mtstack<int> s;
+    s.push(3);
+    int x;
+    ULOCK_EXPECT(s.pop(x));
+    ULOCK_EXPECT(x == 3);
+    ULOCK_EXPECT(!s.pop(x));
+    s.push(4);
+    s.push(5);
+    s.push(6);
+    ULOCK_EXPECT(s.pop(x));
+    ULOCK_EXPECT(x == 6);
+    ULOCK_EXPECT(s.pop(x));
+    ULOCK_EXPECT(x == 5);
+    ULOCK_EXPECT(s.pop(x));
+    ULOCK_EXPECT(x == 4);
+    ULOCK_EXPECT(!s.pop(x));
+    s.push(7);
+    s.push(8);
+    s.push(9);
+    s.clear();
+    ULOCK_EXPECT(!s.pop(x));
+  }
+  catch (const exception& ex)
+  {
+    cout << "Failure: " << ex.what() << endl;
+    return;
+  }
+  cout << "All tests successful." << endl;
+}
+
 int main()
 {
   //test_constructor_destructor();
-  test_perf();
+  //test_perf();
+  unit_test();
   return 0;
 }
