@@ -217,7 +217,7 @@ void test_constructor_destructor()
 
 int main()
 {
-  //test_constructor_destructor();
-  test_perf();
+  test_constructor_destructor();
+  //test_perf();
   return 0;
 }
