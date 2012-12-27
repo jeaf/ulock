@@ -9,7 +9,7 @@ namespace ulock
   {
   public:
     InterlockedSizeCounter() : size_(0) {}
-    unsigned int size() {return size_;}
+    unsigned int size() const {return size_;}
 
   protected:
     void increment_size()
@@ -33,67 +33,93 @@ namespace ulock
     void decrement_size(){}
   };
 
-  template <typename T, typename SizeCounter = InterlockedSizeCounter>
+  template <typename T>
+  class RecyclingNodeAlloc
+  {
+  public:
+    struct Node
+    {
+      SLIST_ENTRY entry;
+      T obj;
+    };
+
+    RecyclingNodeAlloc() : freenodes_(NULL)
+    {
+      freenodes_ = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
+      InitializeSListHead(freenodes_);
+    }
+
+    ~RecyclingNodeAlloc()
+    {
+      while (Node* n = reinterpret_cast<Node*>(InterlockedPopEntrySList(freenodes_)))
+      {
+        destroy_node(n);
+      }
+    }
+
+    Node* alloc_node()
+    {
+      void* free_node = InterlockedPopEntrySList(freenodes_);
+      if (!free_node)
+      {
+        free_node = _aligned_malloc(sizeof(Node), MEMORY_ALLOCATION_ALIGNMENT);
+      }
+      return static_cast<Node*>(free_node);
+    }
+
+    void free_node(Node* node)
+    {
+      InterlockedPushEntrySList(freenodes_, &node->entry);
+    }
+
+    void destroy_node(Node* node)
+    {
+      _aligned_free(node);
+    }
+
+  private:
+    SLIST_HEADER* freenodes_;
+  };
+
+  template <typename T, typename SizeCounter = InterlockedSizeCounter, typename NodeAlloc = RecyclingNodeAlloc<T> >
   class mtstack : public SizeCounter
   {
   public:
     typedef T value_type;
 
-    mtstack() : nodes(NULL), free_nodes(NULL)
+    mtstack() : nodes_(NULL)
     {
-      nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
-      InitializeSListHead(nodes);
-      free_nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
-      InitializeSListHead(free_nodes);
-    }
-
-    mtstack(unsigned n, const T& val = T()) : nodes(NULL), free_nodes(NULL)
-    {
-      nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
-      InitializeSListHead(nodes);
-      free_nodes = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
-      InitializeSListHead(free_nodes);
-      for (unsigned i = 0; i < n; ++i)
-      {
-        push(val);
-      }
+      nodes_ = static_cast<SLIST_HEADER*>(_aligned_malloc(sizeof(SLIST_HEADER), MEMORY_ALLOCATION_ALIGNMENT));
+      InitializeSListHead(nodes_);
     }
 
     ~mtstack()
     {
-      while (SLIST_ENTRY* e = InterlockedPopEntrySList(nodes))
+      while (NodeAlloc::Node* n = reinterpret_cast<NodeAlloc::Node*>(InterlockedPopEntrySList(nodes_)))
       {
         decrement_size();
-        reinterpret_cast<node*>(e)->obj.~T();
-        _aligned_free(e);
-      }
-      while (SLIST_ENTRY* e = InterlockedPopEntrySList(free_nodes))
-      {
-        _aligned_free(e);
+        n->obj.~T();
+        allocator_.destroy_node(n);
       }
     }
 
     void push(const T& obj = T())
     {
-      void* free_node = InterlockedPopEntrySList(free_nodes);
-      if (!free_node)
-      {
-        free_node = _aligned_malloc(sizeof(node), MEMORY_ALLOCATION_ALIGNMENT);
-      }
-      ::new (&static_cast<node*>(free_node)->obj) T(obj);
-      InterlockedPushEntrySList(nodes, static_cast<SLIST_ENTRY*>(free_node));
+      NodeAlloc::Node* new_node = allocator_.alloc_node();
+      ::new (&new_node->obj) T(obj);
+      InterlockedPushEntrySList(nodes_, &new_node->entry);
       increment_size();
     }
 
     bool pop(T& obj)
     {
-      SLIST_ENTRY* e = InterlockedPopEntrySList(nodes);
-      if (e)
+      NodeAlloc::Node* n = reinterpret_cast<NodeAlloc::Node*>(InterlockedPopEntrySList(nodes_));
+      if (n)
       {
         decrement_size();
-        obj = reinterpret_cast<node*>(e)->obj;
-        reinterpret_cast<node*>(e)->obj.~T();
-        InterlockedPushEntrySList(free_nodes, e);
+        obj = n->obj;
+        n->obj.~T();
+        allocator_.free_node(n);
         return true;
       }
       return false;
@@ -101,22 +127,17 @@ namespace ulock
 
     void clear()
     {
-      while (SLIST_ENTRY* e = InterlockedPopEntrySList(nodes))
+      while (NodeAlloc::Node* n = reinterpret_cast<NodeAlloc::Node*>(InterlockedPopEntrySList(nodes_)))
       {
         decrement_size();
-        reinterpret_cast<node*>(e)->obj.~T();
-        InterlockedPushEntrySList(free_nodes, e);
+        n->obj.~T();
+        allocator_.free_node(n);
       }
     }
 
   private:
-    struct node
-    {
-      SLIST_ENTRY entry;
-      T obj;
-    };
-    SLIST_HEADER* nodes;
-    SLIST_HEADER* free_nodes;
+    SLIST_HEADER* nodes_;
+    NodeAlloc allocator_;
   };
 }
 
