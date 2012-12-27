@@ -26,6 +26,13 @@ namespace ulock
     volatile LONG size_;
   };
 
+  class NullSizeCounter
+  {
+  protected:
+    void increment_size(){}
+    void decrement_size(){}
+  };
+
   template <typename T, typename SizeCounter = InterlockedSizeCounter>
   class mtstack : public SizeCounter
   {
