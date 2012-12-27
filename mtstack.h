@@ -81,6 +81,32 @@ namespace ulock
     SLIST_HEADER* freenodes_;
   };
 
+  template <typename T>
+  class BaseNodeAlloc
+  {
+  public:
+    struct Node
+    {
+      SLIST_ENTRY entry;
+      T obj;
+    };
+
+    Node* alloc_node()
+    {
+      return static_cast<Node*>(_aligned_malloc(sizeof(Node), MEMORY_ALLOCATION_ALIGNMENT));
+    }
+
+    void free_node(Node* node)
+    {
+      _aligned_free(node);
+    }
+
+    void destroy_node(Node* node)
+    {
+      _aligned_free(node);
+    }
+  };
+
   template <typename T, typename SizeCounter = InterlockedSizeCounter, typename NodeAlloc = RecyclingNodeAlloc<T> >
   class mtstack : public SizeCounter
   {

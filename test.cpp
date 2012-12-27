@@ -117,7 +117,9 @@ private:
 //typedef critstack<ComplexType> TStack;
 //typedef critstack<LargeStruct, vector<LargeStruct> > TStack;
 //typedef ulock::mtstack<int> TStack;
-typedef ulock::mtstack<LargeStruct> TStack;
+//typedef ulock::mtstack<LargeStruct, ulock::NullSizeCounter, ulock::RecyclingNodeAlloc<LargeStruct> > TStack;
+typedef ulock::mtstack<LargeStruct, ulock::InterlockedSizeCounter, ulock::RecyclingNodeAlloc<LargeStruct> > TStack;
+//typedef ulock::mtstack<LargeStruct, ulock::InterlockedSizeCounter, ulock::BaseNodeAlloc<LargeStruct> > TStack;
 //typedef ulock::mtstack<ComplexType> TStack;
 const int elem_count = 2000;
 const int prod_count = 50;
