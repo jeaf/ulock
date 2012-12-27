@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual C++ Express 2010
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mtlist", "mtlist.vcxproj", "{0AF24207-DC4E-4287-B28E-88E00E3AF058}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ulock", "ulock.vcxproj", "{0AF24207-DC4E-4287-B28E-88E00E3AF058}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
