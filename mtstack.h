@@ -36,7 +36,7 @@ namespace ulock
   template <typename T>
   class RecyclingNodeAlloc
   {
-  public:
+  protected:
     struct Node
     {
       SLIST_ENTRY entry;
@@ -84,7 +84,7 @@ namespace ulock
   template <typename T>
   class BaseNodeAlloc
   {
-  public:
+  protected:
     struct Node
     {
       SLIST_ENTRY entry;
@@ -108,7 +108,7 @@ namespace ulock
   };
 
   template <typename T, typename SizeCounter = InterlockedSizeCounter, typename NodeAlloc = RecyclingNodeAlloc<T> >
-  class mtstack : public SizeCounter
+  class mtstack : public SizeCounter, protected NodeAlloc
   {
   public:
     typedef T value_type;
@@ -121,17 +121,17 @@ namespace ulock
 
     ~mtstack()
     {
-      while (NodeAlloc::Node* n = reinterpret_cast<NodeAlloc::Node*>(InterlockedPopEntrySList(nodes_)))
+      while (Node* n = reinterpret_cast<Node*>(InterlockedPopEntrySList(nodes_)))
       {
         decrement_size();
         n->obj.~T();
-        allocator_.destroy_node(n);
+        destroy_node(n);
       }
     }
 
     void push(const T& obj = T())
     {
-      NodeAlloc::Node* new_node = allocator_.alloc_node();
+      Node* new_node = alloc_node();
       ::new (&new_node->obj) T(obj);
       InterlockedPushEntrySList(nodes_, &new_node->entry);
       increment_size();
@@ -139,13 +139,13 @@ namespace ulock
 
     bool pop(T& obj)
     {
-      NodeAlloc::Node* n = reinterpret_cast<NodeAlloc::Node*>(InterlockedPopEntrySList(nodes_));
+      Node* n = reinterpret_cast<Node*>(InterlockedPopEntrySList(nodes_));
       if (n)
       {
         decrement_size();
         obj = n->obj;
         n->obj.~T();
-        allocator_.free_node(n);
+        free_node(n);
         return true;
       }
       return false;
@@ -153,17 +153,16 @@ namespace ulock
 
     void clear()
     {
-      while (NodeAlloc::Node* n = reinterpret_cast<NodeAlloc::Node*>(InterlockedPopEntrySList(nodes_)))
+      while (Node* n = reinterpret_cast<Node*>(InterlockedPopEntrySList(nodes_)))
       {
         decrement_size();
         n->obj.~T();
-        allocator_.free_node(n);
+        free_node(n);
       }
     }
 
   private:
     SLIST_HEADER* nodes_;
-    NodeAlloc allocator_;
   };
 }
 
