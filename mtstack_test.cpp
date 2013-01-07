@@ -207,6 +207,7 @@ void unit_test()
   {
     mtstack<int> s;
     s.push(3);
+    ULOCK_EXPECT(s.size() == 1);
     int x;
     ULOCK_EXPECT(s.pop(x));
     ULOCK_EXPECT(x == 3);

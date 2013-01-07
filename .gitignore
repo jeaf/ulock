@@ -4,6 +4,7 @@
 *.swp
 *.user
 Debug
+Release
 ipch
 
 # Compiled Object files
